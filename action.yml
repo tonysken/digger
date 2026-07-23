@@ -500,7 +500,7 @@ runs:
       shell: bash
 
     - name: build and run digger
-      if: ${{ steps.determine-binary-mode.outputs.binary-mode == 'build' }}
+#      if: ${{ steps.determine-binary-mode.outputs.binary-mode == 'build' }}
       shell: bash
       env:
         PLAN_UPLOAD_DESTINATION: ${{ inputs.upload-plan-destination }}
