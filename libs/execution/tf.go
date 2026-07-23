@@ -124,6 +124,9 @@ func (tf Terraform) runTerraformCommand(command string, printOutputToStdout bool
 	cmd.Dir = tf.WorkingDir
 
 	env := os.Environ()
+	for _, kv := range env {
+		slog.Info(fmt.Sprintf("Print Terraform Envs : %s", kv))
+	}
 	for k, v := range envs {
 		slog.Info(fmt.Sprintf("Print Terraform Envs : %s=%s", k, v))
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
