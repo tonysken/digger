@@ -92,7 +92,7 @@ func (tf Terraform) runTerraformCommand(command string, printOutputToStdout bool
 	for _, p := range args {
 		s := os.ExpandEnv(p)
 		s = strings.TrimSpace(s)
-		slog.Info(fmt.Sprintf("Print Terraform Args: %s=%s", p, s))
+		slog.Info(fmt.Sprintf("Print Terraform Args : %s=%s", p, s))
 		if s != "" {
 			expandedArgs = append(expandedArgs, s)
 		}
@@ -125,7 +125,7 @@ func (tf Terraform) runTerraformCommand(command string, printOutputToStdout bool
 
 	env := os.Environ()
 	for k, v := range envs {
-		slog.Info(fmt.Sprintf("Print Terraform Envs: %s=%s", k, v))
+		slog.Info(fmt.Sprintf("Print Terraform Envs : %s=%s", k, v))
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
 	cmd.Env = env
