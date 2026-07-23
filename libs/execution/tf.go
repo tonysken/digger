@@ -9,6 +9,7 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
+	"time"
 )
 
 type TerraformExecutor interface {
@@ -83,6 +84,7 @@ func (tf Terraform) switchToWorkspace(envs map[string]string) error {
 }
 
 func (tf Terraform) runTerraformCommand(command string, printOutputToStdout bool, envs map[string]string, filterRegex *string, arg ...string) (string, string, int, error) {
+
 	args := []string{command}
 	args = append(args, arg...)
 
@@ -90,6 +92,7 @@ func (tf Terraform) runTerraformCommand(command string, printOutputToStdout bool
 	for _, p := range args {
 		s := os.ExpandEnv(p)
 		s = strings.TrimSpace(s)
+		slog.Info(fmt.Sprintf("Print Terraform Args: %s=%s", p, s))
 		if s != "" {
 			expandedArgs = append(expandedArgs, s)
 		}
@@ -122,12 +125,14 @@ func (tf Terraform) runTerraformCommand(command string, printOutputToStdout bool
 
 	env := os.Environ()
 	for k, v := range envs {
+		slog.Info(fmt.Sprintf("Print Terraform Envs: %s=%s", k, v))
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
 	cmd.Env = env
 	cmd.Stdout = mwout
 	cmd.Stderr = mwerr
 
+	time.Sleep(300 * time.Second)
 	err = cmd.Run()
 
 	// terraform plan can return 2 if there are changes to be applied, so we don't want to fail in that case
