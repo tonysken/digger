@@ -508,7 +508,7 @@ runs:
 #      if: ${{ steps.determine-binary-mode.outputs.binary-mode == 'build' }}
       shell: bash
       env:
-        ACCESS_TOKEN: ${{ inputs.access-token }}
+        GOOGLE_OAUTH_ACCESS_TOKEN: ${{ inputs.access-token }}
         PLAN_UPLOAD_DESTINATION: ${{ inputs.upload-plan-destination }}
         PLAN_UPLOAD_S3_ENCRYPTION_ENABLED: ${{ inputs.upload-plan-destination-s3-encryption-enabled }}
         PLAN_UPLOAD_S3_ENCRYPTION_TYPE: ${{ inputs.upload-plan-destination-s3-encryption-type }}
