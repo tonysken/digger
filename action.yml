@@ -266,6 +266,11 @@ inputs:
     description: "Log level for digger CLI. Valid values are: DEBUG, INFO, WARN, ERROR."
     required: false
     default: "INFO"
+  
+  access-token:
+    required: false
+    default: ""
+    description: "Token used by gcp"
 
 outputs:
   output:
@@ -500,9 +505,10 @@ runs:
       shell: bash
 
     - name: build and run digger
-      if: ${{ steps.determine-binary-mode.outputs.binary-mode == 'build' }}
+#      if: ${{ steps.determine-binary-mode.outputs.binary-mode == 'build' }}
       shell: bash
       env:
+        GOOGLE_OAUTH_ACCESS_TOKEN: ${{ inputs.access-token }}
         PLAN_UPLOAD_DESTINATION: ${{ inputs.upload-plan-destination }}
         PLAN_UPLOAD_S3_ENCRYPTION_ENABLED: ${{ inputs.upload-plan-destination-s3-encryption-enabled }}
         PLAN_UPLOAD_S3_ENCRYPTION_TYPE: ${{ inputs.upload-plan-destination-s3-encryption-type }}
@@ -552,158 +558,158 @@ runs:
         cd $GITHUB_WORKSPACE
         digger
 
-    - name: download, install, and run digger
-      if: ${{ steps.determine-binary-mode.outputs.binary-mode == 'prebuilt' }}
-      env:
-        DIGGER_VERSION: ${{ inputs.digger-version || github.action_ref }}
-        DIGGER_OS: ${{ inputs.digger-os }}
-        DIGGER_ARCH: ${{ inputs.digger-arch }}
-        PLAN_UPLOAD_DESTINATION: ${{ inputs.upload-plan-destination }}
-        PLAN_UPLOAD_S3_ENCRYPTION_ENABLED: ${{ inputs.upload-plan-destination-s3-encryption-enabled }}
-        PLAN_UPLOAD_S3_ENCRYPTION_TYPE: ${{ inputs.upload-plan-destination-s3-encryption-type }}
-        PLAN_UPLOAD_S3_ENCRYPTION_KMS_ID: ${{ inputs.upload-plan-destination-s3-encryption-kms-key-id }}
-        PLAN_UPLOAD_AZURE_STORAGE_CONTAINER_NAME: ${{ inputs.upload-plan-destination-azure-container }}
-        PLAN_UPLOAD_AZURE_STORAGE_ACCOUNT_NAME: ${{ inputs.upload-plan-destination-azure-storage-account }}
-        GOOGLE_STORAGE_LOCK_BUCKET: ${{ inputs.google-lock-bucket }}
-        GOOGLE_STORAGE_PLAN_ARTEFACT_BUCKET: ${{ inputs.upload-plan-destination-gcp-bucket }}
-        AWS_S3_BUCKET: ${{ inputs.upload-plan-destination-s3-bucket }}
-        ACTIVATE_VENV: ${{ inputs.setup-checkov == 'true' }}
-        DISABLE_LOCKING: ${{ inputs.disable-locking == 'true' }}
-        DIGGER_PRIVATE_KEY: ${{ inputs.digger-private-key }}
-        DIGGER_TOKEN: ${{ inputs.digger-token }}
-        DIGGER_ORGANISATION: ${{ inputs.digger-organisation }}
-        DIGGER_HOSTNAME: ${{ inputs.digger-hostname }}
-        DIGGER_FILENAME: ${{ inputs.digger-filename }}
-        ACCUMULATE_PLANS: ${{ inputs.post-plans-as-one-comment == 'true' }}
-        REPORTING_STRATEGY: ${{ inputs.reporting-strategy }}
-        INPUT_DIGGER_PROJECT: ${{ inputs.project }}
-        INPUT_DIGGER_MODE: ${{ inputs.mode }}
-        INPUT_DIGGER_COMMAND: ${{ inputs.command }}
-        INPUT_DRIFT_DETECTION_SLACK_NOTIFICATION_URL: ${{ inputs.drift-detection-slack-notification-url }}
-        INPUT_DRIFT_DETECTION_ADVANCED_SLACK_NOTIFICATION_URL: ${{ inputs.drift-detection-advanced-slack-notification-url }}
-        NO_BACKEND: ${{ inputs.no-backend }}
-        TG_PROVIDER_CACHE: ${{ (inputs.cache-dependencies == 'true' || inputs.cache-dependencies-s3 == 'true') && 1 || 0 }}
-        TERRAGRUNT_PROVIDER_CACHE: ${{ (inputs.cache-dependencies == 'true' || inputs.cache-dependencies-s3 == 'true') && 1 || 0 }}
-        TF_PLUGIN_CACHE_DIR: ${{ env.TF_PLUGIN_CACHE_DIR }}
-        TG_PROVIDER_CACHE_DIR: ${{ env.TF_PLUGIN_CACHE_DIR }}
-        TERRAGRUNT_PROVIDER_CACHE_DIR: ${{ env.TF_PLUGIN_CACHE_DIR }}
-        DIGGER_RUN_SPEC: ${{inputs.digger-spec}}
-        DIGGER_LOG_LEVEL: ${{ inputs.log-level }}
-      id: digger
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        echo "🔧 Downloading Digger CLI..."
-        echo "Runner OS: ${{ runner.os }}, Arch: ${{ runner.arch }}, Digger Version: ${DIGGER_VERSION}"
-
-        if [[ ${{ inputs.ee }} == "true" ]]; then
-          if [[ ${{ inputs.fips }} == "true" ]]; then
-            DOWNLOAD_URL="https://github.com/diggerhq/digger/releases/download/${DIGGER_VERSION}/digger-ee-cli-${DIGGER_OS}-${DIGGER_ARCH}-fips"
-          else
-            DOWNLOAD_URL="https://github.com/diggerhq/digger/releases/download/${DIGGER_VERSION}/digger-ee-cli-${DIGGER_OS}-${DIGGER_ARCH}"
-          fi
-        else
-          DOWNLOAD_URL="https://github.com/diggerhq/digger/releases/download/${DIGGER_VERSION}/digger-cli-${DIGGER_OS}-${DIGGER_ARCH}"
-        fi
-
-        echo "Downloading from: $DOWNLOAD_URL"
-
-        if ! curl -sL --fail "$DOWNLOAD_URL" -o digger; then
-          echo "Failed to download Digger CLI from $DOWNLOAD_URL"
-          echo ""
-          echo "Possible reasons:"
-          echo "1. The release ${DIGGER_VERSION} might not exist"
-          echo "2. Binary for ${{ runner.os }}-${{ runner.arch }} might not be available"
-          echo "3. Network connectivity issues"
-          echo ""
-          echo "Suggestions:"
-          echo "- Check if release ${DIGGER_VERSION} exists at: https://github.com/diggerhq/digger/releases"
-          echo "- Verify the architecture combination is supported"
-          echo "- Try using a different release version"
-          exit 1
-        fi
-
-        if [[ ! -f digger || ! -s digger ]]; then
-          echo "Downloaded file is empty or doesn't exist"
-          exit 1
-        fi
-
-        chmod +x digger
-
-        if [[ ! -x digger ]]; then
-          echo "Failed to make digger executable"
-          exit 1
-        fi
-
-        echo "Successfully downloaded and prepared Digger CLI"
-        PATH=$PATH:$(pwd)
-        cd $GITHUB_WORKSPACE
-        digger
-
-    - name: run digger in local dev mode
-      if: ${{ steps.determine-binary-mode.outputs.binary-mode == 'local' }}
-      env:
-        DIGGER_VERSION: ${{ github.action_ref }}
-        PLAN_UPLOAD_DESTINATION: ${{ inputs.upload-plan-destination }}
-        PLAN_UPLOAD_S3_ENCRYPTION_ENABLED: ${{ inputs.upload-plan-destination-s3-encryption-enabled }}
-        PLAN_UPLOAD_S3_ENCRYPTION_TYPE: ${{ inputs.upload-plan-destination-s3-encryption-type }}
-        PLAN_UPLOAD_S3_ENCRYPTION_KMS_ID: ${{ inputs.upload-plan-destination-s3-encryption-kms-key-id }}
-        PLAN_UPLOAD_AZURE_STORAGE_CONTAINER_NAME: ${{ inputs.upload-plan-destination-azure-container }}
-        PLAN_UPLOAD_AZURE_STORAGE_ACCOUNT_NAME: ${{ inputs.upload-plan-destination-azure-storage-account }}
-        GOOGLE_STORAGE_LOCK_BUCKET: ${{ inputs.google-lock-bucket }}
-        GOOGLE_STORAGE_PLAN_ARTEFACT_BUCKET: ${{ inputs.upload-plan-destination-gcp-bucket }}
-        AWS_S3_BUCKET: ${{ inputs.upload-plan-destination-s3-bucket }}
-        ACTIVATE_VENV: ${{ inputs.setup-checkov == 'true' }}
-        DISABLE_LOCKING: ${{ inputs.disable-locking == 'true' }}
-        DIGGER_PRIVATE_KEY: ${{ inputs.digger-private-key }}
-        DIGGER_TOKEN: ${{ inputs.digger-token }}
-        DIGGER_ORGANISATION: ${{ inputs.digger-organisation }}
-        DIGGER_HOSTNAME: ${{ inputs.digger-hostname }}
-        DIGGER_FILENAME: ${{ inputs.digger-filename }}
-        ACCUMULATE_PLANS: ${{ inputs.post-plans-as-one-comment == 'true' }}
-        REPORTING_STRATEGY: ${{ inputs.reporting-strategy }}
-        INPUT_DIGGER_PROJECT: ${{ inputs.project }}
-        INPUT_DIGGER_MODE: ${{ inputs.mode }}
-        INPUT_DIGGER_COMMAND: ${{ inputs.command }}
-        INPUT_DRIFT_DETECTION_SLACK_NOTIFICATION_URL: ${{ inputs.drift-detection-slack-notification-url }}
-        INPUT_DRIFT_DETECTION_ADVANCED_SLACK_NOTIFICATION_URL: ${{ inputs.drift-detection-advanced-slack-notification-url }}
-        NO_BACKEND: ${{ inputs.no-backend }}
-        TG_PROVIDER_CACHE: ${{ (inputs.cache-dependencies == 'true' || inputs.cache-dependencies-s3 == 'true') && 1 || 0 }}
-        TERRAGRUNT_PROVIDER_CACHE: ${{ (inputs.cache-dependencies == 'true' || inputs.cache-dependencies-s3 == 'true') && 1 || 0 }}
-        TF_PLUGIN_CACHE_DIR: ${{ env.TF_PLUGIN_CACHE_DIR }}
-        TG_PROVIDER_CACHE_DIR: ${{ env.TF_PLUGIN_CACHE_DIR }}
-        TERRAGRUNT_PROVIDER_CACHE_DIR: ${{ env.TF_PLUGIN_CACHE_DIR }}
-        DIGGER_RUN_SPEC: ${{inputs.digger-spec}}
-        DIGGER_LOG_LEVEL: ${{ inputs.log-level }}
-      id: digger-local-run
-      shell: bash
-      run: |
-        set -euo pipefail
-
-        cd $GITHUB_WORKSPACE
-
-        echo "🚀 Running digger..."
-        RAW="${{ inputs.local-dev-cli-path }}"
-
-        # Validate path to prevent command injection
-        if [[ "$RAW" =~ [^a-zA-Z0-9_./-] ]]; then
-          echo "❌ Invalid characters in local-dev-cli-path"
-          exit 1
-        fi
-
-        if [[ "$RAW"  =~ \.\. || "$RAW" == : || "$RAW" != /* ]]; then
-          echo "❌ traversal/colon/relative not allowed"; exit 1
-        fi        
-
-        DIR=$(realpath -- "$RAW") || { echo "❌ not found"; exit 1; }
-        [[ -d "$DIR" ]] || { echo "❌ not a dir"; exit 1; }        
-
-        BIN="$DIR/digger"
-        [[ -x "$BIN" ]] || { echo "❌ digger not executable at $BIN"; exit 1; }        
-
-        $BIN
-        echo "✅ digger completed"
+#    - name: download, install, and run digger
+#      if: ${{ steps.determine-binary-mode.outputs.binary-mode == 'prebuilt' }}
+#      env:
+#        DIGGER_VERSION: ${{ inputs.digger-version || github.action_ref }}
+#        DIGGER_OS: ${{ inputs.digger-os }}
+#        DIGGER_ARCH: ${{ inputs.digger-arch }}
+#        PLAN_UPLOAD_DESTINATION: ${{ inputs.upload-plan-destination }}
+#        PLAN_UPLOAD_S3_ENCRYPTION_ENABLED: ${{ inputs.upload-plan-destination-s3-encryption-enabled }}
+#        PLAN_UPLOAD_S3_ENCRYPTION_TYPE: ${{ inputs.upload-plan-destination-s3-encryption-type }}
+#        PLAN_UPLOAD_S3_ENCRYPTION_KMS_ID: ${{ inputs.upload-plan-destination-s3-encryption-kms-key-id }}
+#        PLAN_UPLOAD_AZURE_STORAGE_CONTAINER_NAME: ${{ inputs.upload-plan-destination-azure-container }}
+#        PLAN_UPLOAD_AZURE_STORAGE_ACCOUNT_NAME: ${{ inputs.upload-plan-destination-azure-storage-account }}
+#        GOOGLE_STORAGE_LOCK_BUCKET: ${{ inputs.google-lock-bucket }}
+#        GOOGLE_STORAGE_PLAN_ARTEFACT_BUCKET: ${{ inputs.upload-plan-destination-gcp-bucket }}
+#        AWS_S3_BUCKET: ${{ inputs.upload-plan-destination-s3-bucket }}
+#        ACTIVATE_VENV: ${{ inputs.setup-checkov == 'true' }}
+#        DISABLE_LOCKING: ${{ inputs.disable-locking == 'true' }}
+#        DIGGER_PRIVATE_KEY: ${{ inputs.digger-private-key }}
+#        DIGGER_TOKEN: ${{ inputs.digger-token }}
+#        DIGGER_ORGANISATION: ${{ inputs.digger-organisation }}
+#        DIGGER_HOSTNAME: ${{ inputs.digger-hostname }}
+#        DIGGER_FILENAME: ${{ inputs.digger-filename }}
+#        ACCUMULATE_PLANS: ${{ inputs.post-plans-as-one-comment == 'true' }}
+#        REPORTING_STRATEGY: ${{ inputs.reporting-strategy }}
+#        INPUT_DIGGER_PROJECT: ${{ inputs.project }}
+#        INPUT_DIGGER_MODE: ${{ inputs.mode }}
+#        INPUT_DIGGER_COMMAND: ${{ inputs.command }}
+#        INPUT_DRIFT_DETECTION_SLACK_NOTIFICATION_URL: ${{ inputs.drift-detection-slack-notification-url }}
+#        INPUT_DRIFT_DETECTION_ADVANCED_SLACK_NOTIFICATION_URL: ${{ inputs.drift-detection-advanced-slack-notification-url }}
+#        NO_BACKEND: ${{ inputs.no-backend }}
+#        TG_PROVIDER_CACHE: ${{ (inputs.cache-dependencies == 'true' || inputs.cache-dependencies-s3 == 'true') && 1 || 0 }}
+#        TERRAGRUNT_PROVIDER_CACHE: ${{ (inputs.cache-dependencies == 'true' || inputs.cache-dependencies-s3 == 'true') && 1 || 0 }}
+#        TF_PLUGIN_CACHE_DIR: ${{ env.TF_PLUGIN_CACHE_DIR }}
+#        TG_PROVIDER_CACHE_DIR: ${{ env.TF_PLUGIN_CACHE_DIR }}
+#        TERRAGRUNT_PROVIDER_CACHE_DIR: ${{ env.TF_PLUGIN_CACHE_DIR }}
+#        DIGGER_RUN_SPEC: ${{inputs.digger-spec}}
+#        DIGGER_LOG_LEVEL: ${{ inputs.log-level }}
+#      id: digger
+#      shell: bash
+#      run: |
+#        set -euo pipefail
+#
+#        echo "🔧 Downloading Digger CLI..."
+#        echo "Runner OS: ${{ runner.os }}, Arch: ${{ runner.arch }}, Digger Version: ${DIGGER_VERSION}"
+#
+#        if [[ ${{ inputs.ee }} == "true" ]]; then
+#          if [[ ${{ inputs.fips }} == "true" ]]; then
+#            DOWNLOAD_URL="https://github.com/diggerhq/digger/releases/download/${DIGGER_VERSION}/digger-ee-cli-${DIGGER_OS}-${DIGGER_ARCH}-fips"
+#          else
+#            DOWNLOAD_URL="https://github.com/diggerhq/digger/releases/download/${DIGGER_VERSION}/digger-ee-cli-${DIGGER_OS}-${DIGGER_ARCH}"
+#          fi
+#        else
+#          DOWNLOAD_URL="https://github.com/diggerhq/digger/releases/download/${DIGGER_VERSION}/digger-cli-${DIGGER_OS}-${DIGGER_ARCH}"
+#        fi
+#
+#        echo "Downloading from: $DOWNLOAD_URL"
+#
+#        if ! curl -sL --fail "$DOWNLOAD_URL" -o digger; then
+#          echo "Failed to download Digger CLI from $DOWNLOAD_URL"
+#          echo ""
+#          echo "Possible reasons:"
+#          echo "1. The release ${DIGGER_VERSION} might not exist"
+#          echo "2. Binary for ${{ runner.os }}-${{ runner.arch }} might not be available"
+#          echo "3. Network connectivity issues"
+#          echo ""
+#          echo "Suggestions:"
+#          echo "- Check if release ${DIGGER_VERSION} exists at: https://github.com/diggerhq/digger/releases"
+#          echo "- Verify the architecture combination is supported"
+#          echo "- Try using a different release version"
+#          exit 1
+#        fi
+#
+#        if [[ ! -f digger || ! -s digger ]]; then
+#          echo "Downloaded file is empty or doesn't exist"
+#          exit 1
+#        fi
+#
+#        chmod +x digger
+#
+#        if [[ ! -x digger ]]; then
+#          echo "Failed to make digger executable"
+#          exit 1
+#        fi
+#
+#        echo "Successfully downloaded and prepared Digger CLI"
+#        PATH=$PATH:$(pwd)
+#        cd $GITHUB_WORKSPACE
+#        digger
+#
+#    - name: run digger in local dev mode
+#      if: ${{ steps.determine-binary-mode.outputs.binary-mode == 'local' }}
+#      env:
+#        DIGGER_VERSION: ${{ github.action_ref }}
+#        PLAN_UPLOAD_DESTINATION: ${{ inputs.upload-plan-destination }}
+#        PLAN_UPLOAD_S3_ENCRYPTION_ENABLED: ${{ inputs.upload-plan-destination-s3-encryption-enabled }}
+#        PLAN_UPLOAD_S3_ENCRYPTION_TYPE: ${{ inputs.upload-plan-destination-s3-encryption-type }}
+#        PLAN_UPLOAD_S3_ENCRYPTION_KMS_ID: ${{ inputs.upload-plan-destination-s3-encryption-kms-key-id }}
+#        PLAN_UPLOAD_AZURE_STORAGE_CONTAINER_NAME: ${{ inputs.upload-plan-destination-azure-container }}
+#        PLAN_UPLOAD_AZURE_STORAGE_ACCOUNT_NAME: ${{ inputs.upload-plan-destination-azure-storage-account }}
+#        GOOGLE_STORAGE_LOCK_BUCKET: ${{ inputs.google-lock-bucket }}
+#        GOOGLE_STORAGE_PLAN_ARTEFACT_BUCKET: ${{ inputs.upload-plan-destination-gcp-bucket }}
+#        AWS_S3_BUCKET: ${{ inputs.upload-plan-destination-s3-bucket }}
+#        ACTIVATE_VENV: ${{ inputs.setup-checkov == 'true' }}
+#        DISABLE_LOCKING: ${{ inputs.disable-locking == 'true' }}
+#        DIGGER_PRIVATE_KEY: ${{ inputs.digger-private-key }}
+#        DIGGER_TOKEN: ${{ inputs.digger-token }}
+#        DIGGER_ORGANISATION: ${{ inputs.digger-organisation }}
+#        DIGGER_HOSTNAME: ${{ inputs.digger-hostname }}
+#        DIGGER_FILENAME: ${{ inputs.digger-filename }}
+#        ACCUMULATE_PLANS: ${{ inputs.post-plans-as-one-comment == 'true' }}
+#        REPORTING_STRATEGY: ${{ inputs.reporting-strategy }}
+#        INPUT_DIGGER_PROJECT: ${{ inputs.project }}
+#        INPUT_DIGGER_MODE: ${{ inputs.mode }}
+#        INPUT_DIGGER_COMMAND: ${{ inputs.command }}
+#        INPUT_DRIFT_DETECTION_SLACK_NOTIFICATION_URL: ${{ inputs.drift-detection-slack-notification-url }}
+#        INPUT_DRIFT_DETECTION_ADVANCED_SLACK_NOTIFICATION_URL: ${{ inputs.drift-detection-advanced-slack-notification-url }}
+#        NO_BACKEND: ${{ inputs.no-backend }}
+#        TG_PROVIDER_CACHE: ${{ (inputs.cache-dependencies == 'true' || inputs.cache-dependencies-s3 == 'true') && 1 || 0 }}
+#        TERRAGRUNT_PROVIDER_CACHE: ${{ (inputs.cache-dependencies == 'true' || inputs.cache-dependencies-s3 == 'true') && 1 || 0 }}
+#        TF_PLUGIN_CACHE_DIR: ${{ env.TF_PLUGIN_CACHE_DIR }}
+#        TG_PROVIDER_CACHE_DIR: ${{ env.TF_PLUGIN_CACHE_DIR }}
+#        TERRAGRUNT_PROVIDER_CACHE_DIR: ${{ env.TF_PLUGIN_CACHE_DIR }}
+#        DIGGER_RUN_SPEC: ${{inputs.digger-spec}}
+#        DIGGER_LOG_LEVEL: ${{ inputs.log-level }}
+#      id: digger-local-run
+#      shell: bash
+#      run: |
+#        set -euo pipefail
+#
+#        cd $GITHUB_WORKSPACE
+#
+#        echo "🚀 Running digger..."
+#        RAW="${{ inputs.local-dev-cli-path }}"
+#
+#        # Validate path to prevent command injection
+#        if [[ "$RAW" =~ [^a-zA-Z0-9_./-] ]]; then
+#          echo "❌ Invalid characters in local-dev-cli-path"
+#          exit 1
+#        fi
+#
+#        if [[ "$RAW"  =~ \.\. || "$RAW" == : || "$RAW" != /* ]]; then
+#          echo "❌ traversal/colon/relative not allowed"; exit 1
+#        fi
+#
+#        DIR=$(realpath -- "$RAW") || { echo "❌ not found"; exit 1; }
+#        [[ -d "$DIR" ]] || { echo "❌ not a dir"; exit 1; }
+#
+#        BIN="$DIR/digger"
+#        [[ -x "$BIN" ]] || { echo "❌ digger not executable at $BIN"; exit 1; }
+#
+#        $BIN
+#        echo "✅ digger completed"
 
     - uses: actions/cache/save@0057852bfaa89a56745cba8c7296529d2fc39830 # v4.3.0
       name: cache-save

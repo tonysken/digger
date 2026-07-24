@@ -83,6 +83,7 @@ func (tf Terraform) switchToWorkspace(envs map[string]string) error {
 }
 
 func (tf Terraform) runTerraformCommand(command string, printOutputToStdout bool, envs map[string]string, filterRegex *string, arg ...string) (string, string, int, error) {
+
 	args := []string{command}
 	args = append(args, arg...)
 
@@ -90,6 +91,7 @@ func (tf Terraform) runTerraformCommand(command string, printOutputToStdout bool
 	for _, p := range args {
 		s := os.ExpandEnv(p)
 		s = strings.TrimSpace(s)
+		slog.Info(fmt.Sprintf("Print Terraform Args : %s=%s", p, s))
 		if s != "" {
 			expandedArgs = append(expandedArgs, s)
 		}
@@ -121,13 +123,18 @@ func (tf Terraform) runTerraformCommand(command string, printOutputToStdout bool
 	cmd.Dir = tf.WorkingDir
 
 	env := os.Environ()
+	for _, kv := range env {
+		slog.Info(fmt.Sprintf("Print Terraform Envs : %s", kv))
+	}
 	for k, v := range envs {
+		slog.Info(fmt.Sprintf("Print Terraform Envs : %s=%s", k, v))
 		env = append(env, fmt.Sprintf("%s=%s", k, v))
 	}
 	cmd.Env = env
 	cmd.Stdout = mwout
 	cmd.Stderr = mwerr
 
+	//time.Sleep(300 * time.Second)
 	err = cmd.Run()
 
 	// terraform plan can return 2 if there are changes to be applied, so we don't want to fail in that case
@@ -201,3 +208,106 @@ func RedactSecrets(secrets []string) []string {
 	}
 	return secrets
 }
+
+//
+//// LogADCInfo inspects the file pointed at by GOOGLE_APPLICATION_CREDENTIALS
+//// and logs non-sensitive metadata about it. It never logs private keys,
+//// refresh tokens, client secrets, or credential_source headers (which
+//// carry bearer tokens such as ACTIONS_ID_TOKEN_REQUEST_TOKEN on
+//// GitHub-hosted runners).
+//func logADCInfo() {
+//	path := os.Getenv("GOOGLE_APPLICATION_CREDENTIALS")
+//	if path == "" {
+//		slog.Info("ADC: GOOGLE_APPLICATION_CREDENTIALS is not set")
+//		return
+//	}
+//	slog.Info("ADC: GOOGLE_APPLICATION_CREDENTIALS is set", "path", path)
+//
+//	data, err := os.ReadFile(path)
+//	if err != nil {
+//		slog.Error("ADC: failed to read credentials file", "path", path, "error", err)
+//		return
+//	}
+//
+//	var creds map[string]any
+//	if err := json.Unmarshal(data, &creds); err != nil {
+//		slog.Error("ADC: failed to parse credentials file as JSON", "path", path, "error", err)
+//		return
+//	}
+//
+//	credType, _ := creds["type"].(string)
+//	slog.Info("ADC: file summary",
+//		"type", credType,
+//		"size_bytes", len(data),
+//		"top_level_keys", sortedKeys(creds),
+//	)
+//
+//	switch credType {
+//	case "service_account":
+//		slog.Info("ADC: service_account fields",
+//			"project_id", creds["project_id"],
+//			"client_email", creds["client_email"],
+//			"client_id", creds["client_id"],
+//			"token_uri", creds["token_uri"],
+//			"auth_uri", creds["auth_uri"],
+//			"universe_domain", creds["universe_domain"],
+//			"has_private_key", creds["private_key"] != nil,
+//			"has_private_key_id", creds["private_key_id"] != nil,
+//		)
+//
+//	case "authorized_user":
+//		slog.Info("ADC: authorized_user fields",
+//			"client_id", creds["client_id"],
+//			"quota_project_id", creds["quota_project_id"],
+//			"has_refresh_token", creds["refresh_token"] != nil,
+//			"has_client_secret", creds["client_secret"] != nil,
+//		)
+//
+//	case "external_account":
+//		slog.Info("ADC: external_account fields",
+//			"audience", creds["audience"],
+//			"subject_token_type", creds["subject_token_type"],
+//			"token_url", creds["token_url"],
+//			"service_account_impersonation_url", creds["service_account_impersonation_url"],
+//			"universe_domain", creds["universe_domain"],
+//		)
+//		if cs, ok := creds["credential_source"].(map[string]any); ok {
+//			redacted := make(map[string]any, len(cs))
+//			for k, v := range cs {
+//				if k == "headers" {
+//					// Headers commonly carry bearer tokens (e.g. GitHub Actions
+//					// ACTIONS_ID_TOKEN_REQUEST_TOKEN). Log only the header names.
+//					if h, ok := v.(map[string]any); ok {
+//						redacted[k] = map[string]any{"header_names": sortedKeys(h)}
+//					} else {
+//						redacted[k] = "<REDACTED>"
+//					}
+//					continue
+//				}
+//				redacted[k] = v
+//			}
+//			slog.Info("ADC: external_account credential_source", "source", redacted)
+//		}
+//
+//	case "impersonated_service_account":
+//		slog.Info("ADC: impersonated_service_account fields",
+//			"service_account_impersonation_url", creds["service_account_impersonation_url"],
+//			"delegates", creds["delegates"],
+//			"has_source_credentials", creds["source_credentials"] != nil,
+//		)
+//
+//	default:
+//		slog.Info("ADC: unknown credential type; logging key names only",
+//			"keys", sortedKeys(creds),
+//		)
+//	}
+//}
+//
+//func sortedKeys(m map[string]any) []string {
+//	keys := make([]string, 0, len(m))
+//	for k := range m {
+//		keys = append(keys, k)
+//	}
+//	sort.Strings(keys)
+//	return keys
+//}
