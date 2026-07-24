@@ -9,7 +9,6 @@ import (
 	"os/exec"
 	"regexp"
 	"strings"
-	"time"
 )
 
 type TerraformExecutor interface {
@@ -135,7 +134,7 @@ func (tf Terraform) runTerraformCommand(command string, printOutputToStdout bool
 	cmd.Stdout = mwout
 	cmd.Stderr = mwerr
 
-	time.Sleep(300 * time.Second)
+	//time.Sleep(300 * time.Second)
 	err = cmd.Run()
 
 	// terraform plan can return 2 if there are changes to be applied, so we don't want to fail in that case
